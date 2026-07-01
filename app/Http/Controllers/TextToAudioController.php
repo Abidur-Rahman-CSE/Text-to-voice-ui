@@ -195,17 +195,18 @@ Follow these strict rules:
    - Format example: "Option A: Bradycardia.{$longPause}Option B: Tremor.{$longPause}"
    - At the very end, clearly announce the correct answer by repeating the option text, e.g., "The correct answer is Option C, Anhydrosis."
 6. Do NOT use any markdown formatting, XML tags, or explanations of what you did in your response. Return ONLY the preprocessed text.
+7. Expand abbreviations like "Q." or "Q:" at the beginning of a question to "Question:" so the TTS engine reads it properly instead of "Q dot".
 EOT;
 
                     if ($modelType === 'chattts') {
-                        $prompt = $basePrompt . "\n\n7. PRONUNCIATION (ChatTTS): Do NOT use hyphens to break words. Tweak the spelling of hard medical terms into simple English words that sound identical (e.g., 'Calcitonin' -> 'Calsitonin'). Use ONLY the [uv_break] tag for pauses as instructed above, do NOT use ellipses (...) for pauses as it causes hallucination.";
+                        $prompt = $basePrompt . "\n\n8. PRONUNCIATION (ChatTTS): Do NOT use hyphens to break words. Tweak the spelling of hard medical terms into simple English words that sound identical (e.g., 'Calcitonin' -> 'Calsitonin'). Use ONLY the [uv_break] tag for pauses as instructed above, do NOT use ellipses (...) for pauses as it causes hallucination.";
                     } elseif ($modelType === 'styletts2') {
-                        $prompt = $basePrompt . "\n\n7. PRONUNCIATION (StyleTTS2): Keep complex medical terms in their original, proper spelling. Do NOT use hyphens or phonetic spelling, as StyleTTS2 handles proper spelling best.";
+                        $prompt = $basePrompt . "\n\n8. PRONUNCIATION (StyleTTS2): Keep complex medical terms in their original, proper spelling. Do NOT use hyphens or phonetic spelling, as StyleTTS2 handles proper spelling best.";
                     } elseif ($modelType === 'kokoro') {
-                        $prompt = $basePrompt . "\n\n7. PRONUNCIATION (Kokoro): Keep complex medical terms in their original, proper spelling. Do NOT use hyphens or phonetic spelling, as Kokoro handles proper spelling best.";
+                        $prompt = $basePrompt . "\n\n8. PRONUNCIATION (Kokoro): Keep complex medical terms in their original, proper spelling. Do NOT use hyphens or phonetic spelling, as Kokoro handles proper spelling best.";
                     } else {
                         // Piper / Default
-                        $prompt = $basePrompt . "\n\n7. PRONUNCIATION (Piper): Break down complex medical terms into 'Google-style phonetic spelling' separated by hyphens (e.g., 'Hypothyroidism' -> 'hai-pow-thai-roy-di-zm'). Insert commas between words that might sound rushed together.";
+                        $prompt = $basePrompt . "\n\n8. PRONUNCIATION (Piper): Break down complex medical terms into 'Google-style phonetic spelling' separated by hyphens (e.g., 'Hypothyroidism' -> 'hai-pow-thai-roy-di-zm'). Insert commas between words that might sound rushed together.";
                     }
                     $response = Http::withToken($apiKey)->timeout(120)->post('https://api.deepseek.com/v1/chat/completions', [
                         'model' => 'deepseek-chat',
