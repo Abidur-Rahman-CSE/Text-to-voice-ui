@@ -172,7 +172,7 @@ class TextToAudioController extends Controller
                         $shortPause = " [uv_break] ";
                         $longPause = " [uv_break] [uv_break] ";
                     } elseif ($modelType === 'kokoro') {
-                        $shortPause = ". \n ";
+                        $shortPause = "... ";
                         $longPause = ". \n\n ";
                     }
 
