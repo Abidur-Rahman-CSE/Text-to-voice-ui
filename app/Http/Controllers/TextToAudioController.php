@@ -185,7 +185,7 @@ CRITICAL INSTRUCTION: You MUST return the FULL text provided by the user. This i
 Follow these strict rules:
 1. Identify and REMOVE all exam metadata, dates, or department codes from the text (e.g., "Paed. Jan-20", "FCPS Part-1" should be completely deleted).
 2. Clean up structural noise like duplicated option letters (e.g., change "(a) a)" or "a)" to "Option A:").
-3. Ensure questions sound like questions: Add a Question mark (?) at the end of the question sentence so the TTS adopts an interrogative tone. Make it sound like a teacher explaining a quiz.
+3. Ensure questions sound like questions: Add a Question mark (?) at the end of the question sentence so the TTS adopts an interrogative tone. Then insert a LONG pause ("{$longPause}") before starting Option A. Make it sound like a teacher explaining a quiz.
 4. For True/False questions (where options have True/False/✓/✗): 
    - Read the option text, then insert a short pause ("{$shortPause}"), then say "True," or "False,".
    - Then insert a LONG pause ("{$longPause}") before the next option.
@@ -196,17 +196,18 @@ Follow these strict rules:
    - At the very end, clearly announce the correct answer by repeating the option text, e.g., "The correct answer is Option C, Anhydrosis."
 6. Do NOT use any markdown formatting, XML tags, or explanations of what you did in your response. Return ONLY the preprocessed text.
 7. Expand abbreviations like "Q." or "Q:" at the beginning of a question to "Question:" so the TTS engine reads it properly instead of "Q dot".
+8. Expand chemical formulas, medical abbreviations, and units of measurement into full, naturally spoken English words. For example, expand "mmol/L" to "millimoles per liter", "[H]" to "Hydrogen ion concentration", and "[H2CO3]:[HCO3]" to "ratio of carbonic acid to bicarbonate". Ensure it sounds like a human reading a medical text.
 EOT;
 
                     if ($modelType === 'chattts') {
-                        $prompt = $basePrompt . "\n\n8. PRONUNCIATION (ChatTTS): Do NOT use hyphens to break words. Tweak the spelling of hard medical terms into simple English words that sound identical (e.g., 'Calcitonin' -> 'Calsitonin'). Use ONLY the [uv_break] tag for pauses as instructed above, do NOT use ellipses (...) for pauses as it causes hallucination.";
+                        $prompt = $basePrompt . "\n\n9. PRONUNCIATION (ChatTTS): Do NOT use hyphens to break words. Tweak the spelling of hard medical terms into simple English words that sound identical (e.g., 'Calcitonin' -> 'Calsitonin'). Use ONLY the [uv_break] tag for pauses as instructed above, do NOT use ellipses (...) for pauses as it causes hallucination.";
                     } elseif ($modelType === 'styletts2') {
-                        $prompt = $basePrompt . "\n\n8. PRONUNCIATION (StyleTTS2): Keep complex medical terms in their original, proper spelling. Do NOT use hyphens or phonetic spelling, as StyleTTS2 handles proper spelling best.";
+                        $prompt = $basePrompt . "\n\n9. PRONUNCIATION (StyleTTS2): Keep complex medical terms in their original, proper spelling. Do NOT use hyphens or phonetic spelling, as StyleTTS2 handles proper spelling best.";
                     } elseif ($modelType === 'kokoro') {
-                        $prompt = $basePrompt . "\n\n8. PRONUNCIATION (Kokoro): Keep complex medical terms in their original, proper spelling. Do NOT use hyphens or phonetic spelling, as Kokoro handles proper spelling best.";
+                        $prompt = $basePrompt . "\n\n9. PRONUNCIATION (Kokoro): Keep complex medical terms in their original, proper spelling. Do NOT use hyphens or phonetic spelling, as Kokoro handles proper spelling best.";
                     } else {
                         // Piper / Default
-                        $prompt = $basePrompt . "\n\n8. PRONUNCIATION (Piper): Break down complex medical terms into 'Google-style phonetic spelling' separated by hyphens (e.g., 'Hypothyroidism' -> 'hai-pow-thai-roy-di-zm'). Insert commas between words that might sound rushed together.";
+                        $prompt = $basePrompt . "\n\n9. PRONUNCIATION (Piper): Break down complex medical terms into 'Google-style phonetic spelling' separated by hyphens (e.g., 'Hypothyroidism' -> 'hai-pow-thai-roy-di-zm'). Insert commas between words that might sound rushed together.";
                     }
                     $response = Http::withToken($apiKey)->timeout(120)->post('https://api.deepseek.com/v1/chat/completions', [
                         'model' => 'deepseek-chat',
