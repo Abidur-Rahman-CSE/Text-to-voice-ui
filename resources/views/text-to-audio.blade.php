@@ -45,9 +45,12 @@
                 <div class="flex flex-col mb-4">
                     <label class="block text-sm font-medium text-slate-300 mb-2">AI Voice Model</label>
                     <select id="modelSelect" class="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-200">
-                        <option value="fish">Fish Speech S2-Pro (Premium Quality, Slower)</option>
-                        <option value="piper">Piper TTS (Standard Quality, Instant)</option>
-                        <option value="melo">MeloTTS (Fast, Natural Flow)</option>
+                        <option value="melo" selected>MeloTTS</option>
+                        <option value="piper">Piper TTS</option>
+                        <option value="fish">Fish Speech S2-Pro</option>
+                        <option value="chattts">ChatTTS (Conversational)</option>
+                        <option value="styletts2">StyleTTS2</option>
+                        <option value="kokoro">Kokoro-82M</option>
                     </select>
                 </div>
                 <div class="flex flex-col mb-4">
@@ -56,7 +59,16 @@
                         <!-- Populated by JS -->
                     </select>
                 </div>
-                <div class="flex flex-col mb-4">
+                
+                <div class="flex flex-col mb-4" id="diffusionStepsContainer" style="display: none;">
+                    <label class="mb-2 font-semibold text-slate-300 text-sm">Diffusion Steps</label>
+                    <div class="flex items-center space-x-4">
+                        <input type="range" name="diffusion_steps" id="diffusion_steps" min="3" max="20" step="1" value="5" class="w-full h-2 bg-slate-900 border border-slate-600 rounded-lg appearance-none cursor-pointer">
+                        <span id="diffusion_steps_val" class="font-mono text-sm w-8 text-slate-200">5</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-col mb-4" id="standardSpeedContainer">
                     <label class="block text-sm font-medium text-slate-300 mb-2">Speaking Speed</label>
                     <select id="speedSelect" class="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-200">
                         <option value="1.0">Normal (1.0x)</option>
@@ -64,6 +76,67 @@
                         <option value="0.8">Slower (0.8x)</option>
                         <option value="0.7">Very Slow (0.7x)</option>
                     </select>
+                </div>
+
+                <!-- Kokoro Blending Settings -->
+                <div id="kokoroBlendingContainer" class="hidden mb-4 p-4 bg-slate-800 border border-slate-700 rounded-xl space-y-4 shadow-inner">
+                    <h4 class="text-sm font-bold text-indigo-400 mb-2">Voice Blending (Kokoro Only)</h4>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div class="flex flex-col">
+                            <label class="block text-xs font-medium text-slate-400 mb-1">Voice 2 (Optional)</label>
+                            <select id="voice2Select" class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm focus:ring-1 focus:ring-indigo-500 text-slate-200">
+                                <option value="none" selected>None</option>
+                                <!-- Populated dynamically by JS -->
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="flex flex-col">
+                                <label class="block text-xs font-medium text-slate-400 mb-1">Blend Method</label>
+                                <select id="blendMethodSelect" class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm focus:ring-1 focus:ring-indigo-500 text-slate-200">
+                                    <option value="average" selected>Average</option>
+                                    <option value="linear">Linear Interpolation</option>
+                                    <option value="slerp">Spherical (Slerp)</option>
+                                </select>
+                            </div>
+                            <div class="flex flex-col">
+                                <label class="block text-xs font-medium text-slate-400 mb-1">Blend Ratio (<span id="blendRatioVal">0.5</span>)</label>
+                                <input type="range" id="blendRatioSlider" min="0.0" max="1.0" step="0.05" value="0.5" class="w-full h-2 bg-slate-900 border border-slate-600 rounded-lg appearance-none cursor-pointer mt-2">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ChatTTS Advanced Settings -->
+                <div id="chatTtsSettings" class="hidden mb-4 p-4 bg-slate-800 border border-slate-700 rounded-xl space-y-4 shadow-inner">
+                    <h4 class="text-sm font-bold text-indigo-400 mb-2">ChatTTS Tweaks</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col">
+                            <label class="block text-xs font-medium text-slate-400 mb-1">Speed Tag [speed_X]</label>
+                            <select id="chatttsSpeed" class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm focus:ring-1 focus:ring-indigo-500 text-slate-200">
+                                <option value="1">1 (Slowest)</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4 (Slower)</option>
+                                <option value="5" selected>5 (Default/Normal)</option>
+                                <option value="6">6</option>
+                                <option value="7">7 (Faster)</option>
+                                <option value="8">8</option>
+                                <option value="9">9 (Fastest)</option>
+                            </select>
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="block text-xs font-medium text-slate-400 mb-1">Temperature (0.1 - 1.0)</label>
+                            <input type="number" id="chatttsTemp" step="0.1" min="0.1" max="1.0" value="0.3" class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm text-slate-200 focus:ring-1 focus:ring-indigo-500">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="block text-xs font-medium text-slate-400 mb-1">Top P (0.1 - 1.0)</label>
+                            <input type="number" id="chatttsTopP" step="0.1" min="0.1" max="1.0" value="0.7" class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm text-slate-200 focus:ring-1 focus:ring-indigo-500">
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="block text-xs font-medium text-slate-400 mb-1">Top K (1 - 50)</label>
+                            <input type="number" id="chatttsTopK" step="1" min="1" max="50" value="20" class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm text-slate-200 focus:ring-1 focus:ring-indigo-500">
+                        </div>
+                    </div>
                 </div>
 
                 <div class="flex items-center mb-6">
@@ -161,8 +234,34 @@
         const historyContainer = document.getElementById('historyContainer');
         const modelSelect = document.getElementById('modelSelect');
         const voiceSelect = document.getElementById('voiceSelect');
+        const diffusionSteps = document.getElementById('diffusion_steps');
+        const diffusionStepsVal = document.getElementById('diffusion_steps_val');
+
+        diffusionSteps.addEventListener('input', () => { diffusionStepsVal.innerText = diffusionSteps.value; });
 
         const voicesData = {
+            'styletts2': [
+                { value: 'default', text: 'Default Voice (Male)' },
+                { value: 'f-us-1', text: 'Female US 1' },
+                { value: 'f-us-2', text: 'Female US 2' },
+                { value: 'f-us-3', text: 'Female US 3' },
+                { value: 'f-us-4', text: 'Female US 4' },
+                { value: 'm-us-1', text: 'Male US 1' },
+                { value: 'm-us-2', text: 'Male US 2' },
+                { value: 'm-us-3', text: 'Male US 3' },
+                { value: 'm-us-4', text: 'Male US 4' }
+            ],
+            'chattts': [
+                { value: 'random', text: 'Random Voice' },
+                { value: '1111', text: 'Voice Seed A (1111)' },
+                { value: '2222', text: 'Voice Seed B (2222)' },
+                { value: '3333', text: 'Voice Seed C (3333)' }
+            ],
+            'kokoro': [
+                { value: 'af_heart', text: 'American Female (Heart)' },
+                { value: 'am_michael', text: 'American Male (Michael)' },
+                { value: 'am_adam', text: 'American Male (Adam)' }
+            ],
             'fish': [
                 { value: 'default', text: 'Default English Voice' }
             ],
@@ -188,10 +287,37 @@
                 opt.innerText = v.text;
                 voiceSelect.appendChild(opt);
             });
+
+            // Show/hide specific settings
+            document.getElementById('diffusionStepsContainer').style.display = (selectedModel === 'styletts2') ? 'flex' : 'none';
+            document.getElementById('kokoroBlendingContainer').style.display = (selectedModel === 'kokoro') ? 'block' : 'none';
+
+            if (selectedModel === 'kokoro') {
+                const voice2Select = document.getElementById('voice2Select');
+                voice2Select.innerHTML = '<option value="none" selected>None</option>';
+                voicesData['kokoro'].forEach(v => {
+                    const opt = document.createElement('option');
+                    opt.value = v.value;
+                    opt.innerText = v.text;
+                    voice2Select.appendChild(opt);
+                });
+            }
+
+            if (selectedModel === 'chattts') {
+                document.getElementById('chatTtsSettings').classList.remove('hidden');
+                document.getElementById('standardSpeedContainer').classList.add('hidden');
+            } else {
+                document.getElementById('chatTtsSettings').classList.add('hidden');
+                document.getElementById('standardSpeedContainer').classList.remove('hidden');
+            }
         }
 
         modelSelect.addEventListener('change', updateVoiceOptions);
         updateVoiceOptions(); // Initialize
+
+        document.getElementById('blendRatioSlider').addEventListener('input', function(e) {
+            document.getElementById('blendRatioVal').innerText = e.target.value;
+        });
 
         let timerInterval;
         let startTime;
@@ -237,7 +363,6 @@
         }
 
         function prependToHistory(data) {
-            // Remove empty placeholder if exists
             const emptyState = historyContainer.querySelector('.text-center');
             if (emptyState) emptyState.remove();
 
@@ -274,9 +399,10 @@
             
             const payload = { 
                 text: text,
-                model_type: document.getElementById('modelSelect').value,
-                voice: document.getElementById('voiceSelect').value,
+                model_type: modelSelect.value,
+                voice: voiceSelect.value,
                 speed: document.getElementById('speedSelect').value,
+                diffusion_steps: diffusionSteps.value,
                 preprocess_deepseek: document.getElementById('preprocessDeepseek').checked
             };
             appendLog('Payload created:', 'info', payload);
@@ -287,14 +413,23 @@
             try {
                 await new Promise(r => setTimeout(r, 400)); 
                 
-                appendLog('Triggering Laravel Streaming Route (/text-to-audio/stream)...', 'info');
-                appendLog('AI Model is generating chunks. You will hear it almost instantly!', 'success');
-
-                const modelType = document.getElementById('modelSelect').value;
-                const voice = document.getElementById('voiceSelect').value;
+                const modelType = modelSelect.value;
+                const voice = voiceSelect.value;
                 const speed = document.getElementById('speedSelect').value;
                 const preprocess = document.getElementById('preprocessDeepseek').checked ? '1' : '0';
-                const streamUrl = `{{ route('audio.stream') }}?text=${encodeURIComponent(text)}&model_type=${encodeURIComponent(modelType)}&voice=${encodeURIComponent(voice)}&speed=${encodeURIComponent(speed)}&preprocess_deepseek=${preprocess}`;
+                
+                let streamUrl = `{{ route('audio.stream') }}?text=${encodeURIComponent(text)}&model_type=${encodeURIComponent(modelType)}&voice=${encodeURIComponent(voice)}&speed=${encodeURIComponent(speed)}&diffusion_steps=${encodeURIComponent(diffusionSteps.value)}&preprocess_deepseek=${preprocess}`;
+                
+                if (modelType === 'chattts') {
+                    streamUrl += `&chattts_speed=${encodeURIComponent(document.getElementById('chatttsSpeed').value)}`;
+                    streamUrl += `&chattts_temp=${encodeURIComponent(document.getElementById('chatttsTemp').value)}`;
+                    streamUrl += `&chattts_top_p=${encodeURIComponent(document.getElementById('chatttsTopP').value)}`;
+                    streamUrl += `&chattts_top_k=${encodeURIComponent(document.getElementById('chatttsTopK').value)}`;
+                } else if (modelType === 'kokoro') {
+                    streamUrl += `&voice2=${encodeURIComponent(document.getElementById('voice2Select').value)}`;
+                    streamUrl += `&blend_method=${encodeURIComponent(document.getElementById('blendMethodSelect').value)}`;
+                    streamUrl += `&blend_ratio=${encodeURIComponent(document.getElementById('blendRatioSlider').value)}`;
+                }
                 
                 audioPlayer.src = streamUrl;
                 audioContainer.classList.remove('hidden');

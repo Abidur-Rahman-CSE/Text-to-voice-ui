@@ -15,13 +15,23 @@ class TextToAudioController extends Controller
         return view('text-to-audio', compact('audios'));
     }
 
-    public function questionLibrary()
+    public function questionLibrary(Request $request)
     {
-        $questions = \DB::connection('questions_db')
+        $type = $request->query('type', 'all');
+
+        $query = \DB::connection('questions_db')
             ->table('questions')
-            ->whereIn('type', [1, 2])
-            ->orderBy('id', 'desc')
-            ->paginate(15);
+            ->orderBy('id', 'desc');
+
+        if ($type === '1') {
+            $query->where('type', 1);
+        } elseif ($type === '2') {
+            $query->where('type', 2);
+        } else {
+            $query->whereIn('type', [1, 2]);
+        }
+
+        $questions = $query->paginate(15)->appends(['type' => $type]);
             
         $questionIds = $questions->pluck('id')->toArray();
         
@@ -31,7 +41,12 @@ class TextToAudioController extends Controller
             ->get()
             ->groupBy('question_id');
 
-        return view('question-library', compact('questions', 'answers'));
+        $questionAudios = GeneratedAudio::whereIn('question_id', $questionIds)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->groupBy('question_id');
+
+        return view('question-library', compact('questions', 'answers', 'type', 'questionAudios'));
     }
 
     public function synthesize(Request $request)
@@ -89,46 +104,107 @@ class TextToAudioController extends Controller
 
         $request->validate([
             'text' => 'required|string|max:2000',
-            'model_type' => 'nullable|string|in:fish,piper,melo',
+            'model_type' => 'nullable|string|in:fish,piper,melo,chattts,styletts2,kokoro',
             'voice' => 'nullable|string',
             'speed' => 'nullable|numeric|min:0.5|max:2.0',
+            'diffusion_steps' => 'nullable|integer|min:3|max:20',
             'preprocess_deepseek' => 'nullable|in:true,false,1,0',
+            'chattts_speed' => 'nullable|integer',
+            'chattts_temp' => 'nullable|numeric',
+            'chattts_top_p' => 'nullable|numeric',
+            'chattts_top_k' => 'nullable|integer',
         ]);
 
-        $modelType = $request->model_type ?? 'fish';
-        $voice = $request->voice ?? 'EN-US';
+        $modelType = $request->model_type ?? 'melo';
+        $voice = $request->voice;
+        if (!$voice) {
+            if ($modelType === 'kokoro') $voice = 'af_heart';
+            elseif ($modelType === 'styletts2') $voice = 'default';
+            elseif ($modelType === 'melo') $voice = 'EN-US';
+            elseif ($modelType === 'chattts') $voice = 'random';
+            else $voice = 'default';
+        }
         $speed = $request->speed ?? 1.0;
         
         $textToProcess = $request->text;
+        $questionId = null;
+        $deepseekText = null;
+        
+        // Process question text to ensure DeepSeek gets clean and full information
+        if (is_numeric(trim($textToProcess))) {
+            $questionId = trim($textToProcess);
+            $question = \DB::connection('questions_db')->table('questions')->where('id', $questionId)->first();
+            
+            if ($question) {
+                $answers = \DB::connection('questions_db')->table('question_ans')->where('question_id', $questionId)->get();
+                
+                $structuredText = "Question: " . html_entity_decode(strip_tags(str_replace("&nbsp;", " ", $question->question_title))) . "\n\nOptions:\n";
+                foreach ($answers as $ans) {
+                    $isCorrect = "";
+                    if ($question->type == 1) {
+                        $cAns = strtoupper(trim($ans->correct_ans));
+                        $isCorrect = ($cAns === 'T' || $cAns === '1') ? " (True)" : " (False)";
+                    }
+                    $structuredText .= "(" . strtolower($ans->sl_no) . ") " . html_entity_decode(strip_tags(str_replace("&nbsp;", " ", $ans->answer))) . $isCorrect . "\n";
+                }
+                
+                if (!empty($question->correct_ans) && $question->type != 1) {
+                    $structuredText .= "\nCorrect Answer: " . trim($question->correct_ans) . "\n";
+                }
+                
+                if (!empty($question->discussion)) {
+                    $structuredText .= "\nExplanation:\n" . html_entity_decode(strip_tags(str_replace("&nbsp;", " ", $question->discussion))) . "\n";
+                }
+                
+                $textToProcess = $structuredText;
+            }
+        } else {
+            $textToProcess = html_entity_decode(strip_tags(str_replace("&nbsp;", " ", $textToProcess)));
+        }
         if ($request->boolean('preprocess_deepseek')) {
             $apiKey = env('DEEPSEEK_API_KEY');
             if ($apiKey) {
                 try {
-                    $prompt = <<<EOT
-You are a medical text preprocessor for a Text-to-Speech engine.
-Convert the provided medical MCQ into a naturally spoken, human-like script.
+                    $shortPause = ". ... ";
+                    $longPause = ". ...... ";
+                    
+                    if ($modelType === 'chattts') {
+                        $shortPause = " [uv_break] ";
+                        $longPause = " [uv_break] [uv_break] ";
+                    }
 
-Follow these rules strictly:
-1. Replace (True) with ". Correct." and (False) with ". Incorrect."
-2. Replace "/" with " or ".
-3. Expand ALL CAPS medical abbreviations into spaced letters (e.g., SAH -> S A H, SSRI -> S S R I).
-4. Convert complex medical terms into smooth, conversational phonetic spellings so a TTS engine reads them like a doctor speaking naturally. Examples:
-   - subarachnoid -> sub-uh-rak-noid
-   - hemorrhage -> hem-rij (or heh-mor-ij, but keep it smooth)
-   - saccular -> sak-yuh-ler
-   - berry -> beh-ree
-   - aneurysm -> an-yuh-rizm
-   - tricyclics -> trye-sy-kliks
-   - lamotrigine -> luh-moh-tri-jeen
-   - benzodiazepines -> ben-zoh-dye-az-uh-peens
-   - serotonin -> seh-ruh-toe-nin
-   - reuptake -> ree-up-take
-   - inhibitor -> in-hib-i-tor
-5. Replace option labels (a), b), c), d)) with "Option A", "Option B", "Option C", "Option D" for clear spoken distinction.
-6. Do NOT change or fix the medical facts/accuracy.
-7. Return ONLY the final processed plain text. No explanations, no markdown.
+                    $basePrompt = <<<EOT
+You are an expert medical text preprocessor for a Text-to-Speech (TTS) engine.
+Your task is to rewrite raw medical MCQs so that a TTS engine can read them naturally and with flawless medical pronunciation.
+
+CRITICAL INSTRUCTION: You MUST return the FULL text provided by the user. This includes the Question title, all Options, the Correct Answer (if present), and the Explanation (if present). DO NOT omit or skip the question text or explanation. Your job is ONLY to reformat the text for TTS.
+
+Follow these strict rules:
+1. Identify and REMOVE all exam metadata, dates, or department codes from the text (e.g., "Paed. Jan-20", "FCPS Part-1" should be completely deleted).
+2. Clean up structural noise like duplicated option letters (e.g., change "(a) a)" or "a)" to "Option A:").
+3. Ensure questions sound like questions: Add a Question mark (?) at the end of the question sentence so the TTS adopts an interrogative tone. Make it sound like a teacher explaining a quiz.
+4. For True/False questions (where options have True/False/✓/✗): 
+   - Read the option text, then insert a short pause ("{$shortPause}"), then say "Correct." or "Incorrect."
+   - Then insert a LONG pause ("{$longPause}") before the next option.
+   - Format example: "Option A: Bradycardia.{$shortPause}Incorrect.{$longPause}Option B: Tremor.{$shortPause}Correct.{$longPause}"
+5. For Single Best Answer (SBA) questions (where there is a "Correct Answer:" at the end):
+   - Insert a LONG pause ("{$longPause}") between each option.
+   - Format example: "Option A: Bradycardia.{$longPause}Option B: Tremor.{$longPause}"
+   - At the very end, clearly announce the correct answer by repeating the option text, e.g., "The correct answer is Option C, Anhydrosis."
+6. Do NOT use any markdown formatting, XML tags, or explanations of what you did in your response. Return ONLY the preprocessed text.
 EOT;
-                    $response = Http::withToken($apiKey)->timeout(30)->post('https://api.deepseek.com/v1/chat/completions', [
+
+                    if ($modelType === 'chattts') {
+                        $prompt = $basePrompt . "\n\n7. PRONUNCIATION (ChatTTS): Do NOT use hyphens to break words. Tweak the spelling of hard medical terms into simple English words that sound identical (e.g., 'Calcitonin' -> 'Calsitonin'). Use ONLY the [uv_break] tag for pauses as instructed above, do NOT use ellipses (...) for pauses as it causes hallucination.";
+                    } elseif ($modelType === 'styletts2') {
+                        $prompt = $basePrompt . "\n\n7. PRONUNCIATION (StyleTTS2): Keep complex medical terms in their original, proper spelling. Do NOT use hyphens or phonetic spelling, as StyleTTS2 handles proper spelling best.";
+                    } elseif ($modelType === 'kokoro') {
+                        $prompt = $basePrompt . "\n\n7. PRONUNCIATION (Kokoro): Break down complex medical terms into 'Google-style phonetic spelling' separated by hyphens (e.g., 'Hypothyroidism' -> 'hai-pow-thai-roy-di-zm').";
+                    } else {
+                        // Piper / Default
+                        $prompt = $basePrompt . "\n\n7. PRONUNCIATION (Piper): Break down complex medical terms into 'Google-style phonetic spelling' separated by hyphens (e.g., 'Hypothyroidism' -> 'hai-pow-thai-roy-di-zm'). Insert commas between words that might sound rushed together.";
+                    }
+                    $response = Http::withToken($apiKey)->timeout(120)->post('https://api.deepseek.com/v1/chat/completions', [
                         'model' => 'deepseek-chat',
                         'messages' => [
                             ['role' => 'system', 'content' => $prompt],
@@ -136,7 +212,8 @@ EOT;
                         ]
                     ]);
                     if ($response->successful()) {
-                        $textToProcess = $response->json('choices.0.message.content') ?? $textToProcess;
+                        $deepseekText = $response->json('choices.0.message.content');
+                        $textToProcess = $deepseekText ?? $textToProcess;
                     } else {
                         \Illuminate\Support\Facades\Log::error("DeepSeek API failed: " . $response->body());
                     }
@@ -164,7 +241,26 @@ EOT;
             "seed" => null,
             "voice" => $voice,
             "speed" => (float)$speed,
+            "chattts_speed" => intval($request->input('chattts_speed', 5)),
+            "chattts_temp" => floatval($request->input('chattts_temp', 0.3)),
+            "chattts_top_p" => floatval($request->input('chattts_top_p', 0.7)),
+            "chattts_top_k" => intval($request->input('chattts_top_k', 20)),
         ];
+        
+        if ($request->has('diffusion_steps')) {
+            $payload['diffusion_steps'] = (int) $request->input('diffusion_steps');
+        }
+        if ($modelType === 'kokoro') {
+            if ($request->has('voice2')) {
+                $payload['voice2'] = $request->input('voice2');
+            }
+            if ($request->has('blend_method')) {
+                $payload['blend_method'] = $request->input('blend_method');
+            }
+            if ($request->has('blend_ratio')) {
+                $payload['blend_ratio'] = (float) $request->input('blend_ratio');
+            }
+        }
 
         // Prepare file for saving
         $localFileName = 'audio_' . time() . '_' . uniqid() . '.wav';
@@ -176,7 +272,12 @@ EOT;
         }
 
         $audioRecord = GeneratedAudio::create([
+            'question_id' => $questionId,
             'text' => $textToProcess,
+            'deepseek_text' => $deepseekText,
+            'model_type' => $modelType,
+            'voice' => $voice,
+            'speed' => $speed,
             'file_path' => 'audios/' . $localFileName,
         ]);
 
@@ -211,16 +312,30 @@ EOT;
             \Illuminate\Support\Facades\Log::info("Piper Output: " . $output);
             unlink($tmpTextFile);
             
-            return response()->file($localFilePath, [
+            $headers = [
                 'Content-Type' => 'audio/wav',
                 'Cache-Control' => 'no-cache',
-            ]);
+                'X-Generated-Audio-ID' => $audioRecord->id,
+                'X-Generated-Deepseek-Text' => base64_encode($deepseekText ?? ''),
+                'X-Generated-Text' => base64_encode($textToProcess),
+                'X-Audio-Model' => $modelType,
+                'X-Audio-Voice' => $voice,
+                'X-Audio-Speed' => $speed,
+            ];
+            
+            return response()->file($localFilePath, $headers);
         }
 
         return response()->stream(function () use ($payload, $localFilePath, $modelType) {
             $endpoint = 'http://127.0.0.1:8080/v1/tts'; // default fish speech
             if ($modelType === 'melo') {
                 $endpoint = 'http://127.0.0.1:8082/v1/tts'; // MeloTTS server
+            } elseif ($modelType === 'chattts') {
+                $endpoint = 'http://127.0.0.1:8083/v1/tts'; // ChatTTS server
+            } elseif ($modelType === 'styletts2') {
+                $endpoint = 'http://127.0.0.1:8084/v1/tts'; // StyleTTS2 server
+            } elseif ($modelType === 'kokoro') {
+                $endpoint = 'http://127.0.0.1:8085/v1/tts'; // Kokoro TTS server
             }
 
             $ch = curl_init($endpoint);
@@ -256,7 +371,12 @@ EOT;
             'X-Accel-Buffering' => 'no', // Disable Nginx proxy buffering
             'X-Audio-URL' => asset('storage/' . $audioRecord->file_path),
             'X-Audio-Text' => urlencode($audioRecord->text),
-            'X-Audio-Date' => $audioRecord->created_at->diffForHumans()
+            'X-Audio-Date' => $audioRecord->created_at->diffForHumans(),
+            'X-Generated-Audio-ID' => $audioRecord->id,
+            'X-Generated-Deepseek-Text' => base64_encode($deepseekText ?? ''),
+            'X-Audio-Model' => $modelType,
+            'X-Audio-Voice' => $voice,
+            'X-Audio-Speed' => $speed,
         ]);
     }
 
