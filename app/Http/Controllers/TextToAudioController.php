@@ -187,9 +187,9 @@ Follow these strict rules:
 2. Clean up structural noise like duplicated option letters (e.g., change "(a) a)" or "a)" to "Option A:").
 3. Ensure questions sound like questions: Add a Question mark (?) at the end of the question sentence so the TTS adopts an interrogative tone. Make it sound like a teacher explaining a quiz.
 4. For True/False questions (where options have True/False/✓/✗): 
-   - Read the option text, then insert a short pause ("{$shortPause}"), then say "Correct." or "Incorrect."
+   - Read the option text, then insert a short pause ("{$shortPause}"), then say "True." or "False."
    - Then insert a LONG pause ("{$longPause}") before the next option.
-   - Format example: "Option A: Bradycardia.{$shortPause}Incorrect.{$longPause}Option B: Tremor.{$shortPause}Correct.{$longPause}"
+   - Format example: "Option A: Bradycardia.{$shortPause}False.{$longPause}Option B: Tremor.{$shortPause}True.{$longPause}"
 5. For Single Best Answer (SBA) questions (where there is a "Correct Answer:" at the end):
    - Insert a LONG pause ("{$longPause}") between each option.
    - Format example: "Option A: Bradycardia.{$longPause}Option B: Tremor.{$longPause}"
