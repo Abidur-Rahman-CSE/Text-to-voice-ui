@@ -171,6 +171,9 @@ class TextToAudioController extends Controller
                     if ($modelType === 'chattts') {
                         $shortPause = " [uv_break] ";
                         $longPause = " [uv_break] [uv_break] ";
+                    } elseif ($modelType === 'kokoro') {
+                        $shortPause = ". \n ";
+                        $longPause = ". \n\n ";
                     }
 
                     $basePrompt = <<<EOT
@@ -199,7 +202,7 @@ EOT;
                     } elseif ($modelType === 'styletts2') {
                         $prompt = $basePrompt . "\n\n7. PRONUNCIATION (StyleTTS2): Keep complex medical terms in their original, proper spelling. Do NOT use hyphens or phonetic spelling, as StyleTTS2 handles proper spelling best.";
                     } elseif ($modelType === 'kokoro') {
-                        $prompt = $basePrompt . "\n\n7. PRONUNCIATION (Kokoro): Break down complex medical terms into 'Google-style phonetic spelling' separated by hyphens (e.g., 'Hypothyroidism' -> 'hai-pow-thai-roy-di-zm').";
+                        $prompt = $basePrompt . "\n\n7. PRONUNCIATION (Kokoro): Keep complex medical terms in their original, proper spelling. Do NOT use hyphens or phonetic spelling, as Kokoro handles proper spelling best.";
                     } else {
                         // Piper / Default
                         $prompt = $basePrompt . "\n\n7. PRONUNCIATION (Piper): Break down complex medical terms into 'Google-style phonetic spelling' separated by hyphens (e.g., 'Hypothyroidism' -> 'hai-pow-thai-roy-di-zm'). Insert commas between words that might sound rushed together.";
