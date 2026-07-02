@@ -211,7 +211,7 @@ EOT;
                     } elseif ($modelType === 'styletts2') {
                         $prompt = $basePrompt . "\n\n9. PRONUNCIATION (StyleTTS2): Keep complex medical terms in their original, proper spelling. Do NOT use hyphens or phonetic spelling, as StyleTTS2 handles proper spelling best.";
                     } elseif ($modelType === 'kokoro') {
-                        $prompt = $basePrompt . "\n\n9. PRONUNCIATION (Kokoro): Keep complex medical terms in their original, proper spelling. Do NOT use hyphens or phonetic spelling, as Kokoro handles proper spelling best.";
+                        $prompt = $basePrompt . "\n\n9. PRONUNCIATION (Kokoro): Keep complex medical terms in their original spelling, EXCEPT for words that are frequently mispronounced. For hard words, rewrite them into simple English words that sound identical without using hyphens (e.g., 'adrenoceptor' -> 'adreno septor', 'Calcitonin' -> 'Calsitonin'). Do NOT use hyphens as Kokoro struggles with them.";
                     } else {
                         // Piper / Default
                         $prompt = $basePrompt . "\n\n9. PRONUNCIATION (Piper): Break down complex medical terms into 'Google-style phonetic spelling' separated by hyphens (e.g., 'Hypothyroidism' -> 'hai-pow-thai-roy-di-zm'). Insert commas between words that might sound rushed together.";
