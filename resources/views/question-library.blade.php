@@ -176,12 +176,12 @@
                     <div class="flex flex-col lg:flex-row justify-between items-start gap-4">
                         <div class="flex-grow w-full">
                             <span class="inline-block px-2 py-1 bg-slate-700 text-xs font-semibold rounded text-slate-300 mb-2">Type {{ $q->type }} | ID: {{ $q->id }}</span>
-                            <h3 class="text-lg font-medium text-white mb-3">{{ strip_tags($q->question_title) }}</h3>
+                            <h3 class="text-lg font-medium text-white mb-3 transition-colors duration-300 rounded px-1" data-chunk-index="0">{{ strip_tags($q->question_title) }}</h3>
                             
                             @if(isset($answers[$q->id]))
                                 <div class="space-y-1 mt-2 text-sm text-slate-400">
                                     @foreach($answers[$q->id] as $ans)
-                                        <div class="flex gap-2">
+                                        <div class="flex gap-2 transition-colors duration-300 rounded px-1" data-chunk-index="{{ $loop->iteration }}">
                                             <span class="font-medium text-slate-300">({{ strtolower($ans->sl_no) }})</span>
                                             <span>{{ strip_tags($ans->answer) }}</span>
                                             @if($q->type == 1)
@@ -200,7 +200,7 @@
                             @endif
                             
                             @if(!empty($q->correct_ans) && $q->type != 1)
-                                <div class="mt-4 p-3 bg-indigo-900/30 border border-indigo-500/30 rounded-lg text-sm">
+                                <div class="mt-4 p-3 bg-indigo-900/30 border border-indigo-500/30 rounded-lg text-sm transition-colors duration-300" data-chunk-index="{{ count($answers[$q->id] ?? []) + 1 }}">
                                     <span class="font-semibold text-indigo-300">Correct Answer:</span> 
                                     <span class="text-slate-200">{{ $q->correct_ans }}</span>
                                 </div>
@@ -260,7 +260,7 @@
                                         </div>
                                         @endif
                                         
-                                        <audio controls src="{{ asset('storage/' . $audio->file_path) }}" class="w-full h-8 mb-3 rounded"></audio>
+                                        <audio controls src="{{ asset('storage/' . $audio->file_path) }}" class="w-full h-8 mb-3 rounded" data-timestamps="{{ $audio->timestamps_data }}" ontimeupdate="handleAudioTimeUpdate(this, {{ $q->id }})" onplay="handleAudioPlay(this)" onended="handleAudioEnded({{ $q->id }})"></audio>
                                         @if($audio->deepseek_text)
                                             <div class="text-xs bg-slate-900 p-3 rounded-md text-slate-400 border border-slate-700">
                                                 <div class="font-semibold text-slate-300 mb-1">DeepSeek Preprocessed Script:</div>
@@ -460,6 +460,13 @@
                     deepseekText = atob(deepseekText);
                 }
                 
+                let timestampsData = response.headers.get('X-Audio-Timestamps');
+                if (timestampsData) {
+                    timestampsData = atob(timestampsData);
+                } else {
+                    timestampsData = '';
+                }
+                
                 const resModel = response.headers.get('X-Audio-Model') || model;
                 const resVoice = response.headers.get('X-Audio-Voice') || voice;
                 const resSpeed = response.headers.get('X-Audio-Speed') || speed;
@@ -485,7 +492,7 @@
                         <span class="px-2 py-0.5 bg-slate-700 rounded text-[10px] text-slate-300">Voice: ${resVoice}</span>
                         <span class="px-2 py-0.5 bg-slate-700 rounded text-[10px] text-slate-300">Speed: ${resSpeed}x</span>
                     </div>
-                    <audio controls src="${audioUrl}" class="w-full h-8 mb-3 rounded"></audio>
+                    <audio controls src="${audioUrl}" class="w-full h-8 mb-3 rounded" data-timestamps='${timestampsData}' ontimeupdate="handleAudioTimeUpdate(this, ${questionId})" onplay="handleAudioPlay(this)" onended="handleAudioEnded(${questionId})"></audio>
                 `;
                 
                 if (deepseekText) {
@@ -585,6 +592,64 @@
                 document.getElementById('dropdownList').classList.add('hidden');
             }
         });
+
+        // Audio Highlighting Logic
+        let activeQuestionId = null;
+        function handleAudioPlay(audioElement) {
+            // Pause any other playing audios
+            document.querySelectorAll('audio').forEach(audio => {
+                if (audio !== audioElement) {
+                    audio.pause();
+                }
+            });
+        }
+
+        function handleAudioEnded(questionId) {
+            clearHighlights(questionId);
+        }
+
+        function clearHighlights(questionId) {
+            const block = document.getElementById(`questionBlock-${questionId}`);
+            if (block) {
+                block.querySelectorAll('[data-chunk-index]').forEach(el => {
+                    el.classList.remove('bg-yellow-500/30', 'ring-2', 'ring-yellow-400', 'text-yellow-100');
+                });
+            }
+        }
+
+        function handleAudioTimeUpdate(audioElement, questionId) {
+            const timestampsStr = audioElement.getAttribute('data-timestamps');
+            if (!timestampsStr) return;
+            
+            try {
+                const timestamps = JSON.parse(timestampsStr);
+                const currentTime = audioElement.currentTime;
+                let activeIndex = -1;
+                
+                for (const ts of timestamps) {
+                    if (currentTime >= ts.start && currentTime <= ts.end) {
+                        activeIndex = ts.chunk_index;
+                        break;
+                    }
+                }
+                
+                const block = document.getElementById(`questionBlock-${questionId}`);
+                if (!block) return;
+                
+                // Clear previous highlights
+                block.querySelectorAll('[data-chunk-index]').forEach(el => {
+                    const idx = parseInt(el.getAttribute('data-chunk-index'));
+                    if (idx === activeIndex) {
+                        el.classList.add('bg-yellow-500/30', 'ring-2', 'ring-yellow-400', 'text-yellow-100');
+                    } else {
+                        el.classList.remove('bg-yellow-500/30', 'ring-2', 'ring-yellow-400', 'text-yellow-100');
+                    }
+                });
+                
+            } catch (e) {
+                console.error("Error parsing timestamps", e);
+            }
+        }
     </script>
 </body>
 </html>
