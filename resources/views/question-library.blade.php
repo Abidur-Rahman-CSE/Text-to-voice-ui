@@ -18,7 +18,7 @@
     </div>
 
     <div class="max-w-7xl mx-auto bg-slate-800 p-6 rounded-2xl shadow-2xl border border-slate-700">
-        <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-[100]">
             <div>
                 <h2 class="text-2xl font-bold text-white flex items-center gap-2">
                     <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
@@ -27,10 +27,43 @@
                 <p class="text-slate-400 text-sm mt-1">Live from {{ env('DB_QUESTIONS_DATABASE') }}</p>
             </div>
             
-            <div class="flex bg-slate-900 rounded-lg p-1 border border-slate-700">
-                <a href="{{ route('audio.library', ['type' => 'all']) }}" class="px-4 py-1.5 rounded-md text-sm font-medium transition-colors {{ $type === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200' }}">All Types</a>
-                <a href="{{ route('audio.library', ['type' => '1']) }}" class="px-4 py-1.5 rounded-md text-sm font-medium transition-colors {{ $type === '1' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200' }}">Type 1</a>
-                <a href="{{ route('audio.library', ['type' => '2']) }}" class="px-4 py-1.5 rounded-md text-sm font-medium transition-colors {{ $type === '2' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200' }}">Type 2</a>
+            <div class="flex flex-col md:flex-row gap-4 items-center">
+                <div class="flex bg-slate-900 rounded-lg p-1 border border-slate-700">
+                    <a href="{{ request()->fullUrlWithQuery(['type' => 'all', 'page' => null]) }}" class="px-4 py-1.5 rounded-md text-sm font-medium transition-colors {{ $type === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200' }}">All Types</a>
+                    <a href="{{ request()->fullUrlWithQuery(['type' => '1', 'page' => null]) }}" class="px-4 py-1.5 rounded-md text-sm font-medium transition-colors {{ $type === '1' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200' }}">Type 1</a>
+                    <a href="{{ request()->fullUrlWithQuery(['type' => '2', 'page' => null]) }}" class="px-4 py-1.5 rounded-md text-sm font-medium transition-colors {{ $type === '2' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200' }}">Type 2</a>
+                </div>
+                
+                <form method="GET" action="{{ route('audio.library') }}" class="flex" id="filterForm">
+                    <input type="hidden" name="type" value="{{ $type }}">
+                    <input type="hidden" name="book_id" id="hiddenBookId" value="{{ request('book_id') }}">
+                    
+                    <div class="relative w-[250px]" id="bookDropdown">
+                        <div class="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-300 cursor-pointer flex justify-between items-center" onclick="toggleDropdown()">
+                            @php
+                                $selectedBook = request('book_id') ? $books->firstWhere('id', request('book_id')) : null;
+                            @endphp
+                            <span id="selectedBookText" class="truncate pr-2">
+                                {{ $selectedBook ? $selectedBook->book_name . ' (ID: ' . $selectedBook->id . ')' : 'All Books' }}
+                            </span>
+                            <svg class="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                        
+                        <div id="dropdownList" class="hidden absolute top-full left-0 w-[300px] mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl z-50">
+                            <div class="p-2 border-b border-slate-700">
+                                <input type="text" id="bookSearch" placeholder="Search by name or ID..." class="w-full px-3 py-1.5 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 focus:outline-none focus:border-indigo-500" onkeyup="filterBooks()">
+                            </div>
+                            <div class="max-h-60 overflow-y-auto" id="bookOptions">
+                                <a href="javascript:void(0)" onclick="selectBook('', 'All Books')" class="book-option block px-4 py-2 text-sm text-slate-300 hover:bg-slate-700">All Books</a>
+                                @foreach($books as $book)
+                                    <a href="javascript:void(0)" onclick="selectBook('{{ $book->id }}')" class="book-option block px-4 py-2 text-sm text-slate-300 hover:bg-slate-700" data-search="{{ strtolower($book->book_name . ' ' . $book->id) }}">
+                                        {{ $book->book_name }} <span class="text-xs text-indigo-400 ml-1">(ID: {{ $book->id }})</span>
+                                    </a>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
 
@@ -521,6 +554,37 @@
                 btnElement.disabled = false;
             }
         }
+        function toggleDropdown() {
+            document.getElementById('dropdownList').classList.toggle('hidden');
+            if (!document.getElementById('dropdownList').classList.contains('hidden')) {
+                document.getElementById('bookSearch').focus();
+            }
+        }
+
+        function filterBooks() {
+            let input = document.getElementById('bookSearch').value.toLowerCase();
+            let options = document.querySelectorAll('.book-option');
+            options.forEach(opt => {
+                if (!opt.dataset.search) { opt.style.display = input === '' ? 'block' : 'none'; return; }
+                if (opt.dataset.search.includes(input)) {
+                    opt.style.display = 'block';
+                } else {
+                    opt.style.display = 'none';
+                }
+            });
+        }
+
+        function selectBook(id) {
+            document.getElementById('hiddenBookId').value = id;
+            document.getElementById('filterForm').submit();
+        }
+
+        document.addEventListener('click', function(event) {
+            let dropdown = document.getElementById('bookDropdown');
+            if (dropdown && !dropdown.contains(event.target)) {
+                document.getElementById('dropdownList').classList.add('hidden');
+            }
+        });
     </script>
 </body>
 </html>

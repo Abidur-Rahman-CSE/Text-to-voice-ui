@@ -18,6 +18,7 @@ class TextToAudioController extends Controller
     public function questionLibrary(Request $request)
     {
         $type = $request->query('type', 'all');
+        $bookId = $request->query('book_id');
 
         $query = \DB::connection('questions_db')
             ->table('questions')
@@ -30,10 +31,16 @@ class TextToAudioController extends Controller
         } else {
             $query->whereIn('type', [1, 2]);
         }
+        
+        if ($bookId) {
+            $query->where('book_id', $bookId);
+        }
 
-        $questions = $query->paginate(15)->appends(['type' => $type]);
+        $questions = $query->paginate(15)->appends(['type' => $type, 'book_id' => $bookId]);
             
         $questionIds = $questions->pluck('id')->toArray();
+        
+        $books = \DB::connection('questions_db')->table('products')->select('id', 'book_name')->orderBy('id', 'desc')->get();
         
         $answers = \DB::connection('questions_db')
             ->table('question_ans')
@@ -46,7 +53,7 @@ class TextToAudioController extends Controller
             ->get()
             ->groupBy('question_id');
 
-        return view('question-library', compact('questions', 'answers', 'type', 'questionAudios'));
+        return view('question-library', compact('questions', 'answers', 'type', 'questionAudios', 'books'));
     }
 
     public function synthesize(Request $request)
