@@ -175,7 +175,7 @@
         </div>
 
         <!-- Middle Column: Logs & Info -->
-        <div class="lg:col-span-1 bg-black p-4 rounded-2xl shadow-2xl border border-slate-700 flex flex-col h-[600px] lg:h-auto font-mono text-sm relative overflow-hidden">
+        <div class="lg:col-span-1 bg-black p-4 rounded-2xl shadow-2xl border border-slate-700 flex flex-col h-[600px] lg:h-[800px] font-mono text-sm relative overflow-hidden">
             <div class="absolute top-0 left-0 w-full h-8 bg-slate-800 flex items-center px-4 border-b border-slate-700 z-10">
                 <div class="flex space-x-2">
                     <div class="w-3 h-3 rounded-full bg-red-500"></div>
@@ -194,7 +194,7 @@
         </div>
 
         <!-- Right Column: History -->
-        <div class="lg:col-span-1 bg-slate-800 p-6 rounded-2xl shadow-2xl border border-slate-700 flex flex-col h-[600px] lg:h-auto overflow-hidden">
+        <div class="lg:col-span-1 bg-slate-800 p-6 rounded-2xl shadow-2xl border border-slate-700 flex flex-col h-[600px] lg:h-[800px] overflow-hidden">
             <div class="mb-4">
                 <h3 class="text-lg font-bold text-white">Generated History</h3>
                 <p class="text-xs text-slate-400">Past audios saved to server</p>
@@ -206,10 +206,21 @@
                     <p class="text-xs text-slate-400 mb-2 truncate" title="{{ $audio->text }}">
                         "{{ Str::limit($audio->text, 40) }}"
                     </p>
+                    @if($audio->model_type)
+                    <div class="flex flex-wrap gap-2 mb-2">
+                        <span class="px-2 py-0.5 bg-slate-700 rounded text-[10px] text-slate-300">Model: {{ strtoupper($audio->model_type) }}</span>
+                        <span class="px-2 py-0.5 bg-slate-700 rounded text-[10px] text-slate-300">Voice: {{ $audio->voice }}</span>
+                    </div>
+                    @endif
                     <audio controls src="{{ asset('storage/' . $audio->file_path) }}" class="w-full h-8 rounded mb-2"></audio>
-                    <div class="flex justify-between items-center text-xs text-slate-500">
+                    <div class="flex justify-between items-center text-xs text-slate-500 mt-2">
                         <span>{{ $audio->created_at->diffForHumans() }}</span>
-                        <a href="{{ asset('storage/' . $audio->file_path) }}" download class="text-indigo-400 hover:text-indigo-300">Download</a>
+                        <div class="flex gap-3">
+                            @if($audio->deepseek_text)
+                            <button onclick="viewPreprocessedText(`{{ base64_encode((string) $audio->deepseek_text) }}`)" class="text-indigo-400 hover:text-indigo-300">View</button>
+                            @endif
+                            <a href="{{ asset('storage/' . $audio->file_path) }}" download class="text-indigo-400 hover:text-indigo-300">Download</a>
+                        </div>
                     </div>
                 </div>
                 @empty
@@ -218,6 +229,24 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- Modal for Preprocessed Text -->
+    <div id="preprocessModal" class="fixed inset-0 z-50 hidden bg-black/70 flex items-center justify-center p-4">
+        <div class="bg-slate-800 rounded-xl max-w-2xl w-full p-6 border border-slate-600 shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-white">Preprocessed Text for AI</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="bg-slate-900 p-4 rounded-lg max-h-[60vh] overflow-y-auto">
+                <p id="modalPreprocessText" class="text-sm text-slate-300 whitespace-pre-wrap font-mono"></p>
+            </div>
+            <div class="mt-4 text-right">
+                <button onclick="closeModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors">Close</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -370,12 +399,20 @@
             div.className = 'bg-slate-900 p-4 rounded-xl border border-slate-700 mb-3';
             div.innerHTML = `
                 <p class="text-xs text-slate-400 mb-2 truncate" title="${data.text}">
-                    "${data.text.length > 40 ? data.text.substring(0, 40) + '...' : data.text}"
+                    "${data.text.substring(0, 40)}${data.text.length > 40 ? '...' : ''}"
                 </p>
+                ${data.model_type ? `
+                <div class="flex flex-wrap gap-2 mb-2">
+                    <span class="px-2 py-0.5 bg-slate-700 rounded text-[10px] text-slate-300">Model: ${data.model_type.toUpperCase()}</span>
+                    <span class="px-2 py-0.5 bg-slate-700 rounded text-[10px] text-slate-300">Voice: ${data.voice}</span>
+                </div>` : ''}
                 <audio controls src="${data.url}" class="w-full h-8 rounded mb-2"></audio>
-                <div class="flex justify-between items-center text-xs text-slate-500">
-                    <span>Just now</span>
-                    <a href="${data.url}" download class="text-indigo-400 hover:text-indigo-300">Download</a>
+                <div class="flex justify-between items-center text-xs text-slate-500 mt-2">
+                    <span class="text-green-400">Just now</span>
+                    <div class="flex gap-3">
+                        ${data.deepseek_text ? `<button onclick="viewPreprocessedText('${btoa(unescape(encodeURIComponent(data.deepseek_text)))}')" class="text-indigo-400 hover:text-indigo-300">View</button>` : ''}
+                        <a href="${data.url}" download class="text-indigo-400 hover:text-indigo-300">Download</a>
+                    </div>
                 </div>
             `;
             historyContainer.prepend(div);
@@ -490,6 +527,22 @@
         });
 
         textInput.value = "Welcome to the Fish Speech testing dashboard. The AI model will process this text and return a high quality human voice.";
+
+        function viewPreprocessedText(base64Text) {
+            try {
+                // Decode base64 to utf-8 safely
+                const text = decodeURIComponent(escape(atob(base64Text)));
+                document.getElementById('modalPreprocessText').innerText = text;
+                document.getElementById('preprocessModal').classList.remove('hidden');
+            } catch (e) {
+                console.error("Failed to decode preprocessed text", e);
+                alert("Failed to load text");
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('preprocessModal').classList.add('hidden');
+        }
     </script>
 </body>
 </html>

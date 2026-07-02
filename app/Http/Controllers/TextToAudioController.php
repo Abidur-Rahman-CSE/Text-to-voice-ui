@@ -395,6 +395,10 @@ EOT;
                 'text' => $audioRecord->text,
                 'id' => $audioRecord->id,
                 'created_at' => $audioRecord->created_at->diffForHumans(),
+                'model_type' => $audioRecord->model_type,
+                'voice' => $audioRecord->voice,
+                'speed' => $audioRecord->speed,
+                'deepseek_text' => $audioRecord->deepseek_text,
             ]);
         }
         return response()->json(['error' => 'Not found'], 404);
