@@ -338,54 +338,7 @@ EOT;
             return response()->file($localFilePath, $headers);
         }
 
-        if ($modelType === 'kokoro') {
-            $endpoint = 'http://127.0.0.1:8085/v1/tts';
-            $payload['return_timestamps'] = true;
-            $ch = curl_init($endpoint);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 3600);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            
-            $responseStr = curl_exec($ch);
-            curl_close($ch);
-            
-            $responseData = json_decode($responseStr, true);
-            $timestampsData = null;
-            
-            if ($responseData && isset($responseData['audio_base64'])) {
-                $audioBytes = base64_decode($responseData['audio_base64']);
-                file_put_contents($localFilePath, $audioBytes);
-                if (isset($responseData['timestamps'])) {
-                    $timestampsData = json_encode($responseData['timestamps']);
-                    $audioRecord->timestamps_data = $timestampsData;
-                    $audioRecord->save();
-                }
-            } else {
-                file_put_contents($localFilePath, $responseStr);
-                $audioBytes = $responseStr;
-            }
-            
-            $headers = [
-                'Content-Type' => 'audio/wav',
-                'Cache-Control' => 'no-cache',
-                'X-Audio-URL' => asset('storage/' . $audioRecord->file_path),
-                'X-Audio-Text' => urlencode($audioRecord->text),
-                'X-Audio-Date' => $audioRecord->created_at->diffForHumans(),
-                'X-Generated-Audio-ID' => $audioRecord->id,
-                'X-Generated-Deepseek-Text' => base64_encode($deepseekText ?? ''),
-                'X-Audio-Model' => $modelType,
-                'X-Audio-Voice' => $voice,
-                'X-Audio-Speed' => $speed,
-            ];
-            
-            if ($timestampsData) {
-                $headers['X-Audio-Timestamps'] = base64_encode($timestampsData);
-            }
-            
-            return response($audioBytes, 200)->withHeaders($headers);
-        }
+        // The JSON response blocked streaming, making it too slow. We revert to StreamedResponse.
 
         return response()->stream(function () use ($payload, $localFilePath, $modelType) {
             $endpoint = 'http://127.0.0.1:8080/v1/tts'; // default fish speech
